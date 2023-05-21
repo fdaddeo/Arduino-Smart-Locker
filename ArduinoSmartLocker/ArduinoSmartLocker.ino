@@ -8,54 +8,50 @@
 // #define USE_4X3_KEYPAD
 
 #ifdef USE_4x3_KEYPAD
-#define ROWS 4
-#define COLS 3
+#define KEYPAD_ROWS 4
+#define KEYPAD_COLS 3
 #else
-#define ROWS 4
-#define COLS 4
+#define KEYPAD_ROWS 4
+#define KEYPAD_COLS 4
 #endif
 
-#define RELE 2
+#define RELE_PIN 2
 
-#define SDA_DIO 53
-#define RESET_DIO 49
+#define RFID_SDA 53 // arduino mega default
+#define RFID_DIO 49 // arduino mega default
 
 #ifdef USE_4x3_KEYPAD
-char keypadKeys[ROWS][COLS] = {{'1', '2', '3'},
+char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3'},
                                {'4', '5', '6'},
                                {'7', '8', '9'},
                                {'*', '0', '#'}};
 
-char rowPins[ROWS] = {8, 3, 4, 6};
-char colPins[COLS] = {7, 10, 5};
+char rowPins[KEYPAD_ROWS] = {8, 3, 4, 6};
+char colPins[KEYPAD_COLS] = {7, 10, 5};
 #else
-char keypadKeys[ROWS][COLS] = {{'1', '2', '3', 'A'},
+char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3', 'A'},
                                {'4', '5', '6', 'B'},
                                {'7', '8', '9', 'C'},
                                {'*', '0', '#', 'D'}};
 
-byte rowPins[ROWS] = {22, 23, 24, 25};
-byte colPins[COLS] = {26, 27, 28, 29};
+byte rowPins[KEYPAD_ROWS] = {22, 23, 24, 25};
+byte colPins[KEYPAD_COLS] = {26, 27, 28, 29};
 #endif
 
-char keyPwd[4] = {'1', '2', '3', '4'};
-byte pwd[4] = {199, 81, 171, 121};
-
-char keyTry[4];
-
-// ======================================== Setup DISPLAY.
-//Adafruit_SSD1306 display(128, 64, &Wire, 4);
-//U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE | U8G_I2C_OPT_DEV_0); // I2C / TWI
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE);
-// ========================================
-
 LiquidCrystal_I2C lcd(0x27, 16, 2);  
-MFRC522 cardReader(SDA_DIO, RESET_DIO); 
-Keypad keypad = Keypad(makeKeymap(keypadKeys), rowPins, colPins, ROWS, COLS);
+MFRC522 cardReader(RFID_SDA, RFID_DIO); 
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+Keypad keypad = Keypad(makeKeymap(keypadKeys), rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
 
 size_t cur_idx = 0;
 
 boolean flagRele = false;
+
+char keypadPsw[4] = {'1', '2', '3', '4'};
+char keypadTry[4];
+
+byte rfidPsw[4] = {199, 81, 171, 121};
+byte rfidReadedCard[4];
 
 unsigned long startedOpen = 0;
 int waitTime = 5000;
@@ -67,23 +63,20 @@ void setup()
   SPI.begin();
   u8g2.begin();
   
-  pinMode(RELE, OUTPUT);
+  pinMode(RELE_PIN, OUTPUT);
   
   lcd.init(); 
   lcd.backlight();
 
   cardReader.PCD_Init();
-  Serial.println("partito");
-
-  flagRele=false;
+  Serial.println("Started");
 }
 
 void loop()
 {
-
   if(flagRele == true)
   {
-    digitalWrite(RELE,HIGH);
+    digitalWrite(RELE_PIN, HIGH);
 
     if (millis() - startedOpen > waitTime)
     {
@@ -91,25 +84,24 @@ void loop()
 
       for (size_t i = 0; i < 4; ++i)
       {
-        keyTry[i] = 0; 
+        keypadTry[i] = 0; 
       }
     }
   } 
   else 
   {
-    digitalWrite(RELE,LOW);
+    digitalWrite(RELE_PIN, LOW);
   }
 
-
-  
   lcd.setCursor(cur_idx, 0);
 
   char key = keypad.getKey();
+
   if (key)
   {
     if (key == '*' || key == '#')
     {
-      if (memcmp(keyPwd, keyTry, sizeof(keyPwd)) == 0)
+      if (memcmp(keypadPsw, keypadTry, sizeof(keypadPsw)) == 0)
       {
         Serial.println("Uguale");
         flagRele = true;
@@ -124,20 +116,17 @@ void loop()
     {
       lcd.print(key);
       Serial.print(key);
-      keyTry[cur_idx] = key;
+      keypadTry[cur_idx] = key;
   
       cur_idx = (cur_idx + 1) % 4;
     }
   }
-  
 
   if (cardReader.PICC_IsNewCardPresent())
   {
-    Serial.println("Carta riconosciuta: ");
+    Serial.println("Card readed: ");
     if (cardReader.PICC_ReadCardSerial())
     {
-      byte readedCard[4];
-      
       Serial.print("Tag UID: ");
 
       for (size_t i = 0; i < cardReader.uid.size; ++i)
@@ -145,26 +134,12 @@ void loop()
         Serial.print(cardReader.uid.uidByte[i]);
         Serial.print(" ");
 
-        readedCard[i] = cardReader.uid.uidByte[i];
-        
-        // memcpy(&readedCard[i][0], "\x0A", cardReader.uid.uidByte[i]);
+        rfidReadedCard[i] = cardReader.uid.uidByte[i];
+        // memcpy(&rfidReadedCard[i][0], "\x0A", cardReader.uid.uidByte[i]);
       }
 
-      Serial.print("Carta letta: ");
-      for (size_t i = 0; i < 4; ++i)
-      {
-        Serial.print(readedCard[i]);
-      }
-      Serial.println();
-
-      Serial.print("Pwd: ");
-      for (size_t i = 0; i < 4; ++i)
-      {
-        Serial.print(pwd[i]);
-      }
-      Serial.println();
-
-      if (memcmp(pwd, readedCard, sizeof(pwd)) == 0)
+      // Check if the readed card is an authorized card
+      if (memcmp(rfidPsw, rfidReadedCard, sizeof(rfidPsw)) == 0)
       {
         Serial.println("Uguale");
         flagRele = true;
@@ -172,7 +147,7 @@ void loop()
       }
       else
       {
-        Serial.println("Nope");
+        Serial.println("Unauthorized card!");
       }
 
       Serial.println();
@@ -184,42 +159,35 @@ void loop()
 }
 
 
-//=======================================================Display Data/Ora
-void displayDefault() {
+void displayDefault() 
+{
   u8g2.firstPage();
-  do {
+  
+  do 
+  {
     u8g2.drawBox(0, 0, 128, 16);
-    u8g2.setColorIndex(0);  //inverti colore
+    u8g2.setColorIndex(0);
     u8g2.setFont(u8g2_font_unifont_tf);
     u8g2.drawStr(0, 14, "Sabato");
 
     u8g2.setColorIndex(1);
-    //u8g2.setFont(u8g_font_7x13r);
     u8g2.setFont(u8g2_font_7x13_tf);
     u8g2.setCursor(0, 27);
     u8g2.print("20-05-2023");
 
     u8g2.drawBox(0, 32, 128, 25);
-    u8g2.setColorIndex(0);  //inverti colore
+    u8g2.setColorIndex(0);
     u8g2.setFont(u8g2_font_fub17_tf);
     u8g2.setCursor(10, 55);
-
-    char alfa[2];
-
     
     u8g2.print("12");
     u8g2.print(":");
-
-    
     u8g2.print("25");
 
     u8g2.setFont(u8g_font_8x13r);
     u8g2.setCursor(72, 47);
-
-    
     u8g2.print("33");
-
     u8g2.setColorIndex(1);
-  } while (u8g2.nextPage());
+  } 
+  while (u8g2.nextPage());
 }
-//=======================================================
