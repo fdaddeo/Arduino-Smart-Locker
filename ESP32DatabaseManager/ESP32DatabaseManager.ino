@@ -12,15 +12,15 @@ void setup()
 {
   Serial.begin(115200);
   pinMode(LED, OUTPUT);
-  digitalWrite(LED, HIGH); // Spegni il led
+  digitalWrite(LED, HIGH);
 
   IPAddress ip(192, 168, 1, 200);
   IPAddress gateway(192, 168, 1, 1);
   IPAddress subnet(255, 255, 255, 0);
-  IPAddress dns1(8, 8, 8, 8); //Dns1
-  IPAddress dns2(8, 8, 4, 4); //Dns
+  IPAddress dns1(8, 8, 8, 8);
+  IPAddress dns2(8, 8, 4, 4);
 
-  WiFi.config(ip, gateway, subnet, dns1, dns2); //per indirizzo statico
+  WiFi.config(ip, gateway, subnet, dns1, dns2);
   WiFi.begin(ssid, password);
   
   while (WiFi.status() != WL_CONNECTED)
