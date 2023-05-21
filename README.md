@@ -18,7 +18,7 @@ The hardware requirements are:
 - RFID module - RFC255
 - 4x3 Keypad module
 - LCD screen module - 1602A
-- Rele module - 
+- Rele module - JQC-3FF-S-Z
 - Solenoid Secure Lock
 
 ## Circuit Schema
