@@ -1,2 +1,5 @@
 # Code folder
 .vscode/
+
+# Credential file
+credentials.h

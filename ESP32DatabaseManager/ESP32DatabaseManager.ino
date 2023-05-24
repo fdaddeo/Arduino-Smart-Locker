@@ -1,16 +1,11 @@
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 
-#include "DBbridge.h"
+#include "credentials.h"
 
 #define LED 2
 
-// Enter network info
-const char * ssid = "";
-const char * password = "";
-
-ESP8266WebServer server(80);
 
 void setup()
 {
@@ -33,11 +28,32 @@ void setup()
     delay(500);
   }
   
+  digitalWrite(LED, LOW);
+
   Serial.println();
   Serial.println("Started");
 }
 
 void loop()
 {
+  WiFiClientSecure * client = new WiFiClientSecure();
 
+  if (WiFi.status() == WL_CONNECTED) 
+  {
+    HTTPClient http;
+    client->setInsecure();
+ 
+    http.begin(*client, serverName);
+    int httpCode = http.GET();
+ 
+    if (httpCode > 0)
+    {
+      String payload = http.getString();
+      Serial.println(payload);
+    }
+  }
+
+  delay(10000);
 }
+
+
