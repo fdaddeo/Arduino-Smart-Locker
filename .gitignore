@@ -3,3 +3,6 @@
 
 # Credential file
 credentials.h
+
+# Mac files
+.DS_Store
