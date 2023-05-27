@@ -157,7 +157,7 @@ void loop()
     }
   }
 
-  displayDefault();
+  // displayDefault();
 }
 
 
