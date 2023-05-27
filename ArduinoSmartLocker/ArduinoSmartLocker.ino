@@ -26,8 +26,10 @@ char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3'},
                                {'7', '8', '9'},
                                {'*', '0', '#'}};
 
-char rowPins[KEYPAD_ROWS] = {8, 3, 4, 6};
-char colPins[KEYPAD_COLS] = {7, 10, 5};
+// char rowPins[KEYPAD_ROWS] = {8, 3, 4, 6};
+// char colPins[KEYPAD_COLS] = {7, 10, 5};
+char rowPins[KEYPAD_ROWS] = {27, 22, 23, 25};
+char colPins[KEYPAD_COLS] = {26, 28, 24};
 #else
 char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3', 'A'},
                                {'4', '5', '6', 'B'},
