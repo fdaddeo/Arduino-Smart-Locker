@@ -7,7 +7,7 @@
 
 // #define USE_4X3_KEYPAD
 
-#ifdef USE_4x3_KEYPAD
+#ifdef USE_4X3_KEYPAD
 #define KEYPAD_ROWS 4
 #define KEYPAD_COLS 3
 #else
@@ -20,24 +20,24 @@
 #define RFID_SDA 53 // arduino mega default
 #define RFID_DIO 49 // arduino mega default
 
-#ifdef USE_4x3_KEYPAD
-char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3'},
-                               {'4', '5', '6'},
-                               {'7', '8', '9'},
-                               {'*', '0', '#'}};
+#define LOCKER_WAIT_TIME 5000 // unlocked locker time interval 
 
-// char rowPins[KEYPAD_ROWS] = {8, 3, 4, 6};
-// char colPins[KEYPAD_COLS] = {7, 10, 5};
-char rowPins[KEYPAD_ROWS] = {27, 22, 23, 25};
-char colPins[KEYPAD_COLS] = {26, 28, 24};
+#ifdef USE_4X3_KEYPAD
+char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3'},
+                                             {'4', '5', '6'},
+                                             {'7', '8', '9'},
+                                             {'*', '0', '#'}};
+
+char rowPins[KEYPAD_ROWS] = {8, 3, 4, 6};
+char colPins[KEYPAD_COLS] = {7, 10, 5};
 #else
 char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3', 'A'},
-                               {'4', '5', '6', 'B'},
-                               {'7', '8', '9', 'C'},
-                               {'*', '0', '#', 'D'}};
+                                             {'4', '5', '6', 'B'},
+                                             {'7', '8', '9', 'C'},
+                                             {'*', '0', '#', 'D'}};
 
-byte rowPins[KEYPAD_ROWS] = {22, 23, 24, 25};
-byte colPins[KEYPAD_COLS] = {26, 27, 28, 29};
+char rowPins[KEYPAD_ROWS] = {22, 23, 24, 25};
+char colPins[KEYPAD_COLS] = {26, 27, 28, 29};
 #endif
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);  
@@ -49,14 +49,13 @@ size_t cur_idx = 0;
 
 boolean flagRele = false;
 
-char keypadPsw[4] = {'1', '2', '3', '4'};
-char keypadTry[4];
+char keypadPsw[6] = {'1', '2', '3', '4', '5', '6'};
+char keypadTry[6];
 
 byte rfidPsw[4] = {199, 81, 171, 121};
 byte rfidReadedCard[4];
 
 unsigned long startedOpen = 0;
-int waitTime = 5000;
 
 void setup()
 {
@@ -78,13 +77,16 @@ void loop()
 {
   if(flagRele == true)
   {
+    // Open the locker.
     digitalWrite(RELE_PIN, HIGH);
 
-    if (millis() - startedOpen > waitTime)
+    // Lock the locker after LOCKER_WAIT_TIME milliseconds.
+    if (millis() - startedOpen > LOCKER_WAIT_TIME)
     {
       flagRele = false;
 
-      for (size_t i = 0; i < 4; ++i)
+      // Reset the inserted PIN.
+      for (size_t i = 0; i < 6; ++i)
       {
         keypadTry[i] = 0; 
       }
@@ -92,41 +94,50 @@ void loop()
   } 
   else 
   {
+    // Lock the locker.
     digitalWrite(RELE_PIN, LOW);
   }
 
-  lcd.setCursor(cur_idx, 0);
-
+  // Get the digited key on the keypad.
   char key = keypad.getKey();
 
   if (key)
   {
+    // Confirm button.
     if (key == '*' || key == '#')
     {
+      // Check the PIN correctness.
       if (memcmp(keypadPsw, keypadTry, sizeof(keypadPsw)) == 0)
       {
-        Serial.println("Uguale");
         flagRele = true;
         startedOpen = millis();
+
+        Serial.println("Access Granted");
       }
       else
       {
-        Serial.println("Nope");
+        Serial.println("Wrong PIN!");
       }
     }
     else
     {
+      // Display the digited key.
+      lcd.setCursor(cur_idx, 0);
       lcd.print(key);
       Serial.print(key);
+      
+      // Update the current attempt.
       keypadTry[cur_idx] = key;
-  
-      cur_idx = (cur_idx + 1) % 4;
+      cur_idx = (cur_idx + 1) % 6;
     }
   }
 
+  // Check if it has been read a new RFID card.
   if (cardReader.PICC_IsNewCardPresent())
   {
     Serial.println("Card readed: ");
+
+    // Get the readed card info.
     if (cardReader.PICC_ReadCardSerial())
     {
       Serial.print("Tag UID: ");
@@ -143,9 +154,10 @@ void loop()
       // Check if the readed card is an authorized card
       if (memcmp(rfidPsw, rfidReadedCard, sizeof(rfidPsw)) == 0)
       {
-        Serial.println("Uguale");
         flagRele = true;
         startedOpen = millis();
+        
+        Serial.println("Access Granted");
       }
       else
       {
@@ -157,7 +169,7 @@ void loop()
     }
   }
 
-  // displayDefault();
+  displayDefault();
 }
 
 
