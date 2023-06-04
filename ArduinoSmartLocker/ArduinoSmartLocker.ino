@@ -20,7 +20,12 @@
 #define RFID_SDA 53 // arduino mega default
 #define RFID_DIO 49 // arduino mega default
 
-#define LOCKER_WAIT_TIME 5000 // unlocked locker time interval 
+#define LOCKER_WAIT_TIME 5000 // unlocked locker time interval
+
+// Functions definitions
+void byteArrayToHexCharArray(byte * byteArray, size_t lenght, char * hexArray);
+void displayDefault();
+char byteToHexChar(byte input);
 
 #ifdef USE_4X3_KEYPAD
 char keypadKeys[KEYPAD_ROWS][KEYPAD_COLS] = {{'1', '2', '3'},
@@ -52,8 +57,7 @@ boolean flagRele = false;
 char keypadPsw[6] = {'1', '2', '3', '4', '5', '6'};
 char keypadTry[6];
 
-byte rfidPsw[4] = {199, 81, 171, 121};
-byte rfidReadedCard[4];
+char rfidPsw[8] = {'C', '7', '5', '1', 'A', 'B', '7', '9'};
 
 unsigned long startedOpen = 0;
 
@@ -142,17 +146,16 @@ void loop()
     {
       Serial.print("Tag UID: ");
 
-      for (size_t i = 0; i < cardReader.uid.size; ++i)
-      {
-        Serial.print(cardReader.uid.uidByte[i]);
-        Serial.print(" ");
+      size_t readedCardLength = cardReader.uid.size;
+      char readedCard[readedCardLength];
 
-        rfidReadedCard[i] = cardReader.uid.uidByte[i];
-        // memcpy(&rfidReadedCard[i][0], "\x0A", cardReader.uid.uidByte[i]);
-      }
+      // Convert the readed card to hexadecimal values.
+      byteArrayToHexCharArray(cardReader.uid.uidByte, readedCardLength, readedCard);
 
-      // Check if the readed card is an authorized card
-      if (memcmp(rfidPsw, rfidReadedCard, sizeof(rfidPsw)) == 0)
+      Serial.println(readedCard);
+
+      // Check if the readed card is an authorized card.
+      if (memcmp(rfidPsw, readedCard, sizeof(rfidPsw)) == 0)
       {
         flagRele = true;
         startedOpen = millis();
@@ -172,6 +175,40 @@ void loop()
   displayDefault();
 }
 
+/**
+ * @brief Converts a byte array into an hexadecimal char array.
+ *
+ * @param byteArray The input byte array to be converted.
+ * @param length The length of the input byte array.
+ * @param hexArray The destination char array.
+ * 
+**/
+void byteArrayToHexCharArray(byte * byteArray, size_t length, char * hexArray)
+{
+  for (size_t i = 0; i < length; ++i)
+  {
+    byte firstChunk = (byteArray[i] >> 4) & 0x0F;
+    byte secondChunk = byteArray[i] & 0x0F;
+
+    hexArray[i * 2] = byteToHexChar(firstChunk);
+    hexArray[i * 2 + 1] = byteToHexChar(secondChunk);
+  }
+
+  hexArray[length * 2] = '\0';
+}
+
+/**
+  * @brief Converts a byte value into a char hexadecimal value.
+  *
+  * @param input The byte value to converted.
+  *
+  * @return The converted hexadecimal value.
+  *
+**/
+char byteToHexChar(byte input)
+{
+  return (input <= 9) ? '0' + input : 'A' + (input - 10);
+}
 
 void displayDefault() 
 {
