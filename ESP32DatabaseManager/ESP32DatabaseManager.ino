@@ -1,11 +1,10 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
+#include <WiFiClient.h>
 
 #include "credentials.h"
 
 #define LED 2
-
 
 void setup()
 {
@@ -36,14 +35,20 @@ void setup()
 
 void loop()
 {
-  WiFiClientSecure * client = new WiFiClientSecure();
-
   if (WiFi.status() == WL_CONNECTED) 
   {
+    WiFiClient client;
     HTTPClient http;
-    client->setInsecure();
+    // client->setInsecure();
+
+    char * studentCardQuery = getStudentCardQuery("804D3F");
+
+    Serial.println(studentCardQuery);
  
-    http.begin(*client, serverName);
+    http.begin(client, studentCardQuery);
+
+    free(studentCardQuery);
+    
     int httpCode = http.GET();
  
     if (httpCode > 0)
@@ -55,5 +60,3 @@ void loop()
 
   delay(10000);
 }
-
-
