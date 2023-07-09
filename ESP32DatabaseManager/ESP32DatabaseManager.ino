@@ -3,6 +3,7 @@
 #include <WiFiClient.h>
 
 #include "credentials.h"
+#include "data_structs.h"
 
 #define LED 2
 
@@ -23,40 +24,66 @@ void setup()
   
   while (WiFi.status() != WL_CONNECTED)
   {
-    Serial.print(".");
+    //Serial.print(".");
     delay(500);
   }
   
   digitalWrite(LED, LOW);
 
-  Serial.println();
-  Serial.println("Started");
+  //Serial.println();
+  //Serial.println("Started");
 }
 
 void loop()
 {
   if (WiFi.status() == WL_CONNECTED) 
   {
-    WiFiClient client;
-    HTTPClient http;
-    // client->setInsecure();
-
-    char * studentCardQuery = getStudentCardQuery("804D3F");
-
-    Serial.println(studentCardQuery);
- 
-    http.begin(client, studentCardQuery);
-
-    free(studentCardQuery);
+    CheckMessage msg;
     
-    int httpCode = http.GET();
- 
-    if (httpCode > 0)
+    // Check if there are incoming messages.
+    if (Serial.available() >= sizeof(msg))
     {
-      String payload = http.getString();
-      Serial.println(payload);
+      WiFiClient client;
+      HTTPClient http;
+
+      // Read the message.
+      Serial.readBytes((char *) &msg, sizeof(msg));
+
+      if (msg.type == CARD)
+      {
+        // Get the query string.
+        char * studentCardQuery = generateStudentCardQuery(msg.number);
+        
+        // Send the http request.
+        http.begin(client, studentCardQuery);
+
+        // Free memory.
+        free(studentCardQuery);
+      }
+      else if (msg.type == PIN)
+      {
+        // Get the query string.
+        char * pinQuery = generatePinQuery(msg.number);
+
+        // Send the http request.
+        http.begin(client, pinQuery);
+
+        // Free memory.
+        free(pinQuery);
+      }
+      
+      // Get response code.
+      int httpCode = http.GET();
+ 
+      if (httpCode > 0)
+      {
+        // Set the response code.
+        msg.responseCode = (http.getString() == "OK") ? msg.responseCode = 1 : msg.responseCode = 2;
+
+        Serial.write((uint8_t *) &msg, sizeof(msg));
+      }
     }
   }
 
-  delay(10000);
+  delay(200);
 }

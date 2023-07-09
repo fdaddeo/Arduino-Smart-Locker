@@ -5,10 +5,36 @@
 const char * ssid = "";
 const char * password = "";
 
-// Insert your database server name.
-const char * serverName = "";
+const char queryKey[] = "";
 
-// Insert your apiKey to access to the database.
-const char * databaseKey = "";
+const char serverName[] = "http://smartlock.altervista.org/Queries/";
+
+char * generateStudentCardQuery(char rfidCard[])
+{
+  char scriptName[] = "get_student_card.php?rfid=";
+  int arrayDimension = (sizeof(serverName) + sizeof(scriptName) + sizeof(rfidCard));
+  
+  char * requestUrl = (char *) malloc(arrayDimension * sizeof(char));
+
+  strcpy(requestUrl, serverName);
+  strncat(requestUrl, scriptName, sizeof(scriptName) * sizeof(char));
+  strncat(requestUrl, rfidCard, 8 * sizeof(char));
+
+  return requestUrl;
+}
+
+char * generatePinQuery(char pinNumber[])
+{
+  char scriptName[] = "get_student_pin.php?pin=";
+  int arrayDimension = (sizeof(serverName) + sizeof(scriptName) + sizeof(pinNumber));
+  
+  char * requestUrl = (char *) malloc(arrayDimension * sizeof(char));
+
+  strcpy(requestUrl, serverName);
+  strncat(requestUrl, scriptName, sizeof(scriptName) * sizeof(char));
+  strncat(requestUrl, pinNumber, 6 * sizeof(char));
+
+  return requestUrl;
+}
 
 #endif

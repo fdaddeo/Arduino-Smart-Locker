@@ -5,6 +5,8 @@
 #include <Keypad.h>
 #include <U8g2lib.h>
 
+#include "data_structs.h"
+
 // #define USE_4X3_KEYPAD
 
 #ifdef USE_4X3_KEYPAD
@@ -54,16 +56,17 @@ size_t cur_idx = 0;
 
 boolean flagRele = false;
 
-char keypadPsw[6] = {'1', '2', '3', '4', '5', '6'};
 char keypadTry[6];
-
-char rfidPsw[8] = {'C', '7', '5', '1', 'A', 'B', '7', '9'};
 
 unsigned long startedOpen = 0;
 
 void setup()
 {
+  // Used for debug.
   Serial.begin(19200);
+  // Used for comunication with ESP8266.
+  Serial1.begin(115200);
+
   Wire.begin();
   SPI.begin();
   u8g2.begin();
@@ -110,18 +113,39 @@ void loop()
     // Confirm button.
     if (key == '*' || key == '#')
     {
-      // Check the PIN correctness.
-      if (memcmp(keypadPsw, keypadTry, sizeof(keypadPsw)) == 0)
+      // Initialize the ESP8266 message.
+      CheckMessage msg;
+      msg.type = PIN;
+      strcpy(msg.number, keypadTry);
+      msg.responseCode = 0;
+
+      // Send message to ESP8266.
+      Serial1.write((char *) &msg, sizeof(msg));
+
+      // Wait for ESP8266 response.
+      do
+      {
+        delay(200);
+      }
+      while (Serial1.available() < sizeof(msg));
+
+      // Message received from ESP8266.
+      Serial1.readBytes((char *) &msg, sizeof(msg));
+
+      // Check if the readed card is an authorized card.
+      if (msg.responseCode == 1)
       {
         flagRele = true;
         startedOpen = millis();
-
+        
         Serial.println("Access Granted");
       }
       else
       {
-        Serial.println("Wrong PIN!");
+        Serial.println("Wrong pin!");
       }
+
+      Serial.println();
     }
     else
     {
@@ -152,10 +176,30 @@ void loop()
       // Convert the readed card to hexadecimal values.
       byteArrayToHexCharArray(cardReader.uid.uidByte, readedCardLength, readedCard);
 
-      Serial.println(readedCard);
+      // Initialize the ESP8266 message.
+      CheckMessage msg;
+      msg.type = CARD;
+      strcpy(msg.number, readedCard);
+      msg.responseCode = 0;
+
+      // Send message to ESP8266.
+      Serial1.write((char *) &msg, sizeof(msg));
+
+      // Wait for ESP8266 response.
+      do
+      {
+        Serial.println("Waiting...");
+        delay(200);
+      }
+      while (Serial1.available() < sizeof(msg));
+
+      // Message received from ESP8266.
+      Serial1.readBytes((char *) &msg, sizeof(msg));
+
+      Serial.println(msg.responseCode);
 
       // Check if the readed card is an authorized card.
-      if (memcmp(rfidPsw, readedCard, sizeof(rfidPsw)) == 0)
+      if (msg.responseCode == 1)
       {
         flagRele = true;
         startedOpen = millis();
