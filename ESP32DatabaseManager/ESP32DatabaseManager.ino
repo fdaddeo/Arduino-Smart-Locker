@@ -1,11 +1,12 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
 
 #include "credentials.h"
-#include "data_structs.h"
 
 #define LED 2
+
+//String msg = "<C751AB79";
+// String msg = "$123456";
 
 void setup()
 {
@@ -24,52 +25,49 @@ void setup()
   
   while (WiFi.status() != WL_CONNECTED)
   {
-    //Serial.print(".");
     delay(500);
   }
   
   digitalWrite(LED, LOW);
-
-  //Serial.println();
-  //Serial.println("Started");
 }
 
 void loop()
 {
   if (WiFi.status() == WL_CONNECTED) 
-  {
-    CheckMessage msg;
-    
+  {    
     // Check if there are incoming messages.
-    if (Serial.available() >= sizeof(msg))
+    if (Serial.available() > 0)
     {
-      WiFiClient client;
       HTTPClient http;
 
-      // Read the message.
-      Serial.readBytes((char *) &msg, sizeof(msg));
+      String msg = Serial.readString();
 
-      if (msg.type == CARD)
+      if (msg[0] == '<')
       {
-        // Get the query string.
-        char * studentCardQuery = generateStudentCardQuery(msg.number);
+        // Card readed
+        char card[8];
+
+        for (size_t i = 0; i < 8; ++i)
+        {
+          card[i] = msg[i+1];
+        }
+
+        char * studentCardQuery = generateStudentCardQuery(card);
         
-        // Send the http request.
-        http.begin(client, studentCardQuery);
-
-        // Free memory.
-        free(studentCardQuery);
+        http.begin(studentCardQuery);
       }
-      else if (msg.type == PIN)
+      else if (msg[0] == '$')
       {
-        // Get the query string.
-        char * pinQuery = generatePinQuery(msg.number);
+        // Pin readed.
+        char pin[6];
 
-        // Send the http request.
-        http.begin(client, pinQuery);
+        for (size_t i = 0; i < 6; ++i)
+        {
+          pin[i] = msg[i+1];
+        }
 
-        // Free memory.
-        free(pinQuery);
+        char * studentPinQuery = generatePinQuery(pin);
+        http.begin(studentPinQuery);
       }
       
       // Get response code.
@@ -78,9 +76,32 @@ void loop()
       if (httpCode > 0)
       {
         // Set the response code.
-        msg.responseCode = (http.getString() == "OK") ? msg.responseCode = 1 : msg.responseCode = 2;
+        String responseCode;
+        String response = http.getString();
 
-        Serial.write((uint8_t *) &msg, sizeof(msg));
+        if (response == "OK")
+        {
+          responseCode = "1\n";
+        }
+        else if (response == "BOOKED")
+        {
+          responseCode = "2\n";
+        }
+        else if (response == "OCCUPIED")
+        {
+          responseCode = "3\n";
+        }
+        else if (response == "RES_DONE")
+        {
+          responseCode = "4\n";
+        }
+        else if (response == "UNAUTHORIZED")
+        {
+          responseCode = "5\n";
+        }
+
+        //Serial.println(responseCode);
+        Serial.write(responseCode.c_str());
       }
     }
   }

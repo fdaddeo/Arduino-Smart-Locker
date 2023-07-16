@@ -3,9 +3,6 @@
 #include <LiquidCrystal_I2C.h>
 #include <MFRC522.h>
 #include <Keypad.h>
-#include <U8g2lib.h>
-
-#include "data_structs.h"
 
 // #define USE_4X3_KEYPAD
 
@@ -49,16 +46,15 @@ char colPins[KEYPAD_COLS] = {26, 27, 28, 29};
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);  
 MFRC522 cardReader(RFID_SDA, RFID_DIO); 
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 Keypad keypad = Keypad(makeKeymap(keypadKeys), rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
 
 size_t cur_idx = 0;
 
+unsigned long startedOpen = 0;
+
 boolean flagRele = false;
 
 char keypadTry[6];
-
-unsigned long startedOpen = 0;
 
 void setup()
 {
@@ -69,7 +65,6 @@ void setup()
 
   Wire.begin();
   SPI.begin();
-  u8g2.begin();
   
   pinMode(RELE_PIN, OUTPUT);
   
@@ -114,38 +109,44 @@ void loop()
     if (key == '*' || key == '#')
     {
       // Initialize the ESP8266 message.
-      CheckMessage msg;
-      msg.type = PIN;
-      strcpy(msg.number, keypadTry);
-      msg.responseCode = 0;
+      char msgArray[8];
+      // Add first char.
+      strcpy(msgArray, "$");
+      // Copy the inserted pin.
+      strncat(msgArray, keypadTry, sizeof(keypadTry) * sizeof(char));
+      // Add terminator.
+      strncat(msgArray, "\0", sizeof(char));
 
-      // Send message to ESP8266.
-      Serial1.write((char *) &msg, sizeof(msg));
+      Serial.print("Sending: ");
+      Serial.println(msgArray);
+      Serial1.write(msgArray);
 
-      // Wait for ESP8266 response.
-      do
-      {
-        delay(200);
-      }
-      while (Serial1.available() < sizeof(msg));
+      // wait for response
+      delay(500);
 
-      // Message received from ESP8266.
-      Serial1.readBytes((char *) &msg, sizeof(msg));
+      String response = Serial1.readString();
 
-      // Check if the readed card is an authorized card.
-      if (msg.responseCode == 1)
+      // Check whether the inserted pin is corrected or not.
+      if (response[0] == '1')
       {
         flagRele = true;
         startedOpen = millis();
         
+        lcd.setCursor(0, 1);
+        lcd.print("Opening         ");
         Serial.println("Access Granted");
       }
       else
       {
+        lcd.setCursor(0, 1);
+        lcd.print("Wrong pin       ");
         Serial.println("Wrong pin!");
       }
 
-      Serial.println();
+      cur_idx = 0;
+      lcd.setCursor(0, 0);
+      lcd.print("                ");
+      lcd.setCursor(cur_idx, 0);
     }
     else
     {
@@ -171,52 +172,70 @@ void loop()
       Serial.print("Tag UID: ");
 
       size_t readedCardLength = cardReader.uid.size;
-      char readedCard[readedCardLength];
+      char readedCard[readedCardLength * 2];
 
       // Convert the readed card to hexadecimal values.
       byteArrayToHexCharArray(cardReader.uid.uidByte, readedCardLength, readedCard);
 
-      // Initialize the ESP8266 message.
-      CheckMessage msg;
-      msg.type = CARD;
-      strcpy(msg.number, readedCard);
-      msg.responseCode = 0;
+      char msgArray[10];
+      
+      // Add first char.
+      strcpy(msgArray, "<");
+      // Copy the readed card.
+      strncat(msgArray, readedCard, 8 * sizeof(char));
+      // Add the terminator.
+      strncat(msgArray, "\0", sizeof(char));
 
-      // Send message to ESP8266.
-      Serial1.write((char *) &msg, sizeof(msg));
+      Serial.println(msgArray);
+      Serial1.write(msgArray);
 
-      // Wait for ESP8266 response.
-      do
-      {
-        Serial.println("Waiting...");
-        delay(200);
-      }
-      while (Serial1.available() < sizeof(msg));
+      // wait for response
+      delay(500);
 
-      // Message received from ESP8266.
-      Serial1.readBytes((char *) &msg, sizeof(msg));
-
-      Serial.println(msg.responseCode);
+      String response = Serial1.readString();
 
       // Check if the readed card is an authorized card.
-      if (msg.responseCode == 1)
+      if (response[0] == '1')
       {
         flagRele = true;
         startedOpen = millis();
         
+        lcd.setCursor(0, 1);
+        lcd.print("Opening         ");
         Serial.println("Access Granted");
+      }
+      else if (response[0] == '2')
+      {
+        // The locker is booked.
+        lcd.setCursor(0, 1);
+        lcd.print("Booked          ");
+      }
+      else if (response[0] == '3')
+      {
+        // The locker is occupied.
+        lcd.setCursor(0, 1);
+        lcd.print("Occupied        ");
+      }
+      else if (response[0] == '4')
+      {
+        // It has been completed the locker occupation.
+        flagRele = true;
+        startedOpen = millis();
+
+        lcd.setCursor(0, 1);
+        lcd.print("Occupation Done ");
       }
       else
       {
-        Serial.println("Unauthorized card!");
+        // The card is not authorized.
+        lcd.setCursor(0, 1);
+        lcd.print("Un-authorized   ");
       }
 
       Serial.println();
       cardReader.PICC_HaltA();
     }
   }
-
-  displayDefault();
 }
 
 /**
@@ -252,37 +271,4 @@ void byteArrayToHexCharArray(byte * byteArray, size_t length, char * hexArray)
 char byteToHexChar(byte input)
 {
   return (input <= 9) ? '0' + input : 'A' + (input - 10);
-}
-
-void displayDefault() 
-{
-  u8g2.firstPage();
-  
-  do 
-  {
-    u8g2.drawBox(0, 0, 128, 16);
-    u8g2.setColorIndex(0);
-    u8g2.setFont(u8g2_font_unifont_tf);
-    u8g2.drawStr(0, 14, "Sabato");
-
-    u8g2.setColorIndex(1);
-    u8g2.setFont(u8g2_font_7x13_tf);
-    u8g2.setCursor(0, 27);
-    u8g2.print("20-05-2023");
-
-    u8g2.drawBox(0, 32, 128, 25);
-    u8g2.setColorIndex(0);
-    u8g2.setFont(u8g2_font_fub17_tf);
-    u8g2.setCursor(10, 55);
-    
-    u8g2.print("12");
-    u8g2.print(":");
-    u8g2.print("25");
-
-    u8g2.setFont(u8g_font_8x13r);
-    u8g2.setCursor(72, 47);
-    u8g2.print("33");
-    u8g2.setColorIndex(1);
-  } 
-  while (u8g2.nextPage());
 }

@@ -1,18 +1,25 @@
 #ifndef CREDENTIALS
 #define CREDENTIALS
 
-// Insert your network credentials.
-const char * ssid = "";
-const char * password = "";
+// Function definitions
+char * generateStudentCardQuery(char rfidCard[]);
+char * generatePinQuery(char pinNumber[]);
 
-const char queryKey[] = "";
+const char ssid[] = "";
+const char password[] = "";
 
 const char serverName[] = "http://smartlock.altervista.org/Queries/";
 
+/**
+ * @brief Generates the query starting from the readed card.
+ *
+ * @param rfidCard The readed card.
+ *
+**/
 char * generateStudentCardQuery(char rfidCard[])
 {
-  char scriptName[] = "get_student_card.php?rfid=";
-  int arrayDimension = (sizeof(serverName) + sizeof(scriptName) + sizeof(rfidCard));
+  char scriptName[] = "get_student_card.php?id=101&rfid=";
+  int arrayDimension = sizeof(serverName) + sizeof(scriptName) + sizeof(rfidCard);
   
   char * requestUrl = (char *) malloc(arrayDimension * sizeof(char));
 
@@ -23,9 +30,15 @@ char * generateStudentCardQuery(char rfidCard[])
   return requestUrl;
 }
 
+/**
+ * Generates the query starting from the inserted pin.
+ *
+ * @param pinNumber The inserted pin.
+ *
+**/
 char * generatePinQuery(char pinNumber[])
 {
-  char scriptName[] = "get_student_pin.php?pin=";
+  char scriptName[] = "get_student_pin.php?id=101&pin=";
   int arrayDimension = (sizeof(serverName) + sizeof(scriptName) + sizeof(pinNumber));
   
   char * requestUrl = (char *) malloc(arrayDimension * sizeof(char));
